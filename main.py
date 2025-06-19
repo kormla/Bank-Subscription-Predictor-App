@@ -12,7 +12,7 @@ warnings.filterwarnings('ignore')
 # Initialize Flask app
 app = Flask(__name__)
 
-# --- Load the trained model and features ---
+# Load the trained model and features
 model = None
 model_features = None
 try:
@@ -23,7 +23,7 @@ try:
 except Exception as e:
     print(f"Error loading model or features: {e}")
 
-# --- Define Preprocessing Function ---
+# Define Preprocessing Function (Crucial for consistent predictions)
 def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
     """
     Applies the same preprocessing steps as performed during model training.
@@ -31,11 +31,15 @@ def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
     # Create a DataFrame from the input dictionary
     df_input = pd.DataFrame([data])
 
-    # --- Replicate dropping 'duration' (if present in input) ---
+
+    if 'job' in df_input.columns:
+        df_input['job'] = df_input['job'].astype(str).str.replace('-', '').str.replace(' ', '')
+
+    # - Replicate dropping 'duration' (if present in input) ---
     if 'duration' in df_input.columns:
         df_input = df_input.drop('duration', axis=1)
 
-    # --- Replicate Feature Engineering ---
+    # Replicate Feature Engineering
     if 'pdays' in df_input.columns:
         df_input['was_contacted_before'] = (df_input['pdays'] != -1).astype(int)
     else:
@@ -48,11 +52,10 @@ def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
         # Handle case where campaign might be missing in new input
         df_input['multiple_campaign_contacts'] = 0
 
-    # --- Replicate Outlier Handling (Capping) ---
-
-    numerical_cols_for_outlier_handling = ['balance', 'campaign', 'pdays', 'previous', 'age', 'day'] # Added 'age', 'day'
+    # Replicate Outlier Handling (Capping) 
+    numerical_cols_for_outlier_handling = ['balance', 'campaign', 'pdays', 'previous', 'age', 'day']
     for col in numerical_cols_for_outlier_handling:
-        if col in df_input.columns and col in model_features:           
+        if col in df_input.columns and col in model_features:            
             lower_bound = -1000000 # Default large negative for balance, etc.
             upper_bound = 1000000 # Default large positive
 
@@ -79,9 +82,7 @@ def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
             df_input[col] = np.where(df_input[col] > upper_bound, upper_bound, df_input[col])
 
 
-    # --- 5. Replicate One-Hot Encoding ---
-    # Identify categorical columns that were originally one-hot encoded
-    # This list must exactly match what was used during training.
+    # Replicate one-hot encoding    
     original_categorical_cols = [
         'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact',
         'month', 'poutcome'
@@ -89,29 +90,29 @@ def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
 
     # Convert object columns in current input to category type for consistency with get_dummies
     for col in original_categorical_cols:
-        if col in df_input.columns:
-            # Ensure the category types match the training data if specific ones were used
+        if col in df_input.columns:            
             df_input[col] = df_input[col].astype('category')
 
     # Apply one-hot encoding to the input DataFrame
     df_processed = pd.get_dummies(df_input, columns=original_categorical_cols, drop_first=True)
-  
+
+    # Align columns with the model's training features
     missing_cols = set(model_features) - set(df_processed.columns)
     for c in missing_cols:
         df_processed[c] = 0 # Add missing dummy variables as 0
 
-    # Ensure the order of columns is the same as the training data
+    # Ensuring the order of columns is the same as the training data
     df_final = df_processed[model_features]
 
     return df_final
 
-# --- Home Endpoint ---
+# Home Endpoint
 @app.route("/", methods=['GET'])
 def home():
     # Render the HTML form
     return render_template("index.html")
 
-# --- API Endpoint for Prediction ---
+# API Endpoint for Prediction
 @app.route('/predict', methods=['POST'])
 def predict():
     if model is None or model_features is None:
@@ -178,11 +179,11 @@ def predict():
                                    error_message=str(e),
                                    error_trace=traceback.format_exc())
 
-# --- Health Check Endpoint (Optional but good practice) ---
+# Health Check Endpoint
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'healthy', 'model_loaded': model is not None}), 200
 
-# --- Main entry point for Heroku / Render ---
-if __name__ == '__main__':    
+# Main entry point for Render
+if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
