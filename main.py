@@ -1,6 +1,6 @@
 # main.py
 import flask
-from flask import request, jsonify, Flask, render_template # Added render_template
+from flask import request, jsonify, Flask, render_template
 import joblib
 import pandas as pd
 import numpy as np
@@ -33,10 +33,12 @@ def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
     df_input = pd.DataFrame([data])
 
     # --- 1. Replicate 'unknown' handling (if applicable for new inputs) ---
-    # In a real API, you might validate input or assume clean input.
-    # For now, we'll assume 'unknown' are not directly sent, or need specific handling.
-    # If your model needs to handle 'unknown' in new data, you'd replicate that logic here.
-    # For simplicity, we assume the input dictionary already reflects cleaned categorical values.
+    # For safety, ensure this aligns with your notebook's logic for 'unknown'.
+    # Your notebook replaces 'unknown' with the mode BEFORE OHE.
+    # If the input contains 'unknown', this needs to be mapped to the mode determined during training.
+    # For a robust API, you'd load the modes from training data (e.g., from a separate pickle file).
+    # For now, we assume form inputs don't send 'unknown' or that the model handles it.
+    # If 'unknown' is still an issue, you'd need to load and apply modes for 'job', 'education', 'contact', 'poutcome' here.
 
     # --- 2. Replicate dropping 'duration' (if present in input) ---
     if 'duration' in df_input.columns:
@@ -46,75 +48,62 @@ def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
     if 'pdays' in df_input.columns:
         df_input['was_contacted_before'] = (df_input['pdays'] != -1).astype(int)
     else:
-        # Handle case where pdays might be missing in new input (e.g., default to 0)
         df_input['was_contacted_before'] = 0
 
     if 'campaign' in df_input.columns:
         df_input['multiple_campaign_contacts'] = (df_input['campaign'] > 1).astype(int)
     else:
-        # Handle case where campaign might be missing in new input
         df_input['multiple_campaign_contacts'] = 0
 
     # --- 4. Replicate Outlier Handling (Capping) ---
-    # IMPORTANT: You need to load the actual Q1, Q3, and IQR values (or the calculated bounds)
-    # from your training data and use them here. Hardcoding is not robust.
-    # For example, if you saved these bounds in a dictionary, you'd load them here.
+    # Using explicit bounds from your notebook's output for consistency.
+    # These bounds were calculated during training and should ideally be loaded or hardcoded consistently.
     numerical_cols_for_outlier_handling = ['age', 'balance', 'campaign', 'pdays', 'previous', 'day']
     for col in numerical_cols_for_outlier_handling:
         if col in df_input.columns and col in model_features:
-            # PLACEHOLDER: You NEED to load your actual calculated lower_bound and upper_bound for each column
-            # from your training data and replace these hardcoded zeros.
-            # For demonstration, we'll use simple hardcoded values that might not be correct for your model:
-            lower_bound = -1000000
-            upper_bound = 1000000
+            lower_bound = -np.inf
+            upper_bound = np.inf
 
-            if col == 'age':
-                lower_bound = 18
-                upper_bound = 90
-            elif col == 'balance':
-                lower_bound = -5000
-                upper_bound = 50000
-            elif col == 'campaign':
-                lower_bound = 1
-                upper_bound = 20
-            elif col == 'pdays':
-                lower_bound = -1
-                upper_bound = 999
-            elif col == 'previous':
-                lower_bound = 0
-                upper_bound = 50
-            elif col == 'day':
-                lower_bound = 1
-                upper_bound = 31
+            if col == 'balance': # From notebook output: Lower bound: -1962.00, Upper bound: 3462.00
+                lower_bound = -1962.00
+                upper_bound = 3462.00
+            elif col == 'campaign': # From notebook output: Lower bound: -2.00, Upper bound: 6.00
+                lower_bound = -2.00
+                upper_bound = 6.00
+            elif col == 'pdays': # From notebook output: Lower bound: -1.00, Upper bound: -1.00
+                lower_bound = -1.00
+                upper_bound = -1.00
+            elif col == 'previous': # From notebook output: Lower bound: 0.00, Upper bound: 0.00
+                lower_bound = 0.00
+                upper_bound = 0.00
+            elif col == 'age': # From notebook df.describe(): Min: 18.00, Max: 95.00
+                lower_bound = 18.00
+                upper_bound = 95.00
+            elif col == 'day': # From notebook df.describe(): Min: 1.00, Max: 31.00
+                lower_bound = 1.00
+                upper_bound = 31.00
 
             df_input[col] = np.where(df_input[col] < lower_bound, lower_bound, df_input[col])
             df_input[col] = np.where(df_input[col] > upper_bound, upper_bound, df_input[col])
 
-
     # --- 5. Replicate One-Hot Encoding ---
-    # Identify categorical columns that were originally one-hot encoded
-    # This list MUST exactly match what was used during training.
     original_categorical_cols = [
         'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact',
         'month', 'poutcome'
     ]
 
-    # Convert object columns in current input to category type for consistency with get_dummies
     for col in original_categorical_cols:
         if col in df_input.columns:
             df_input[col] = df_input[col].astype('category')
 
-    # Apply one-hot encoding to the input DataFrame
     df_processed = pd.get_dummies(df_input, columns=original_categorical_cols, drop_first=True)
 
     # --- CRITICAL STEP: Replicate column name cleaning from notebook (after OHE) ---
-    # The notebook's training process applied this to X.columns after get_dummies.
-    # It ensures that generated names like 'job_blue-collar' become 'job_bluecollar'.
+    # The notebook applies this regex replacement to column names AFTER get_dummies.
+    # This is essential to match 'job_blue-collar' to 'job_bluecollar'.
     df_processed.columns = df_processed.columns.str.replace('[^A-Za-z0-9_]+', '', regex=True)
 
     # --- Align columns with the model's training features (CRITICAL STEP) ---
-    # This ensures that your input DataFrame for prediction has the exact same columns
-    # in the exact same order as your training data.
     missing_cols = set(model_features) - set(df_processed.columns)
     for c in missing_cols:
         df_processed[c] = 0 # Add missing dummy variables as 0
@@ -125,7 +114,7 @@ def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
     return df_final
 
 # --- Home Endpoint ---
-@app.route("/", methods=['GET']) # Added methods=['GET']
+@app.route("/", methods=['GET'])
 def home():
     # Render the HTML form
     return render_template("index.html")
@@ -134,7 +123,6 @@ def home():
 @app.route('/predict', methods=['POST'])
 def predict():
     if model is None or model_features is None:
-        # For web form, render error on page; for API, return JSON
         if request.is_json:
             return jsonify({'error': 'Model or features not loaded. Check server logs.'}), 500
         else:
@@ -161,7 +149,6 @@ def predict():
             for key, value in raw_data.items():
                 if key in numerical_features:
                     try:
-                        # Attempt to convert to int, then float if int fails
                         processed_raw_data[key] = int(value)
                     except ValueError:
                         processed_raw_data[key] = float(value)
@@ -209,10 +196,6 @@ def predict():
 def health():
     return jsonify({'status': 'healthy', 'model_loaded': model is not None}), 200
 
-# --- Main entry point for Heroku / Render ---
+# --- Main entry point for Render ---
 if __name__ == '__main__':
-    # For local testing:
-    # Ensure you have your model and model_features.pkl in the same directory
-    # Run with: python main.py (or app.py if renamed)
-    # Test with example curl command provided in the original notebook
     app.run(debug=True, host='0.0.0.0', port=5000)
