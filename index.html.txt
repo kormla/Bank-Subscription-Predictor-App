@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Subscription Predictor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #0056b3; }
+        form div { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], select {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #cce5ff;
+            background-color: #e6f7ff;
+            border-radius: 4px;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bank Term Deposit Subscription Predictor</h1>
+        <p>Enter the client's details to predict if they will subscribe to a term deposit.</p>
+
+        <form action="/predict" method="post">
+            <h2>Client Demographics</h2>
+            <div>
+                <label for="age">Age:</label>
+                <input type="number" id="age" name="age" required value="40">
+            </div>
+            <div>
+                <label for="job">Job:</label>
+                <select id="job" name="job" required>
+                    <option value="admin.">admin.</option>
+                    <option value="blue-collar">blue-collar</option>
+                    <option value="entrepreneur">entrepreneur</option>
+                    <option value="housemaid">housemaid</option>
+                    <option value="management">management</option>
+                    <option value="retired">retired</option>
+                    <option value="self-employed">self-employed</option>
+                    <option value="services">services</option>
+                    <option value="student">student</option>
+                    <option value="technician">technician</option>
+                    <option value="unemployed">unemployed</option>
+                    <option value="unknown">unknown</option>
+                </select>
+            </div>
+            <div>
+                <label for="marital">Marital Status:</label>
+                <select id="marital" name="marital" required>
+                    <option value="married">married</option>
+                    <option value="single">single</option>
+                    <option value="divorced">divorced</option>
+                </select>
+            </div>
+            <div>
+                <label for="education">Education:</label>
+                <select id="education" name="education" required>
+                    <option value="secondary">secondary</option>
+                    <option value="tertiary">tertiary</option>
+                    <option value="primary">primary</option>
+                    <option value="unknown">unknown</option>
+                </select>
+            </div>
+            <div>
+                <label for="default">Has Credit in Default?</label>
+                <select id="default" name="default" required>
+                    <option value="no">no</option>
+                    <option value="yes">yes</option>
+                </select>
+            </div>
+            <div>
+                <label for="balance">Average Yearly Balance (in Euros):</label>
+                <input type="number" id="balance" name="balance" required value="1500">
+            </div>
+            <div>
+                <label for="housing">Has Housing Loan?</label>
+                <select id="housing" name="housing" required>
+                    <option value="yes">yes</option>
+                    <option value="no">no</option>
+                </select>
+            </div>
+            <div>
+                <label for="loan">Has Personal Loan?</label>
+                <select id="loan" name="loan" required>
+                    <option value="no">no</option>
+                    <option value="yes">yes</option>
+                </select>
+            </div>
+
+            <h2>Contact Information</h2>
+            <div>
+                <label for="contact">Contact Communication Type:</label>
+                <select id="contact" name="contact" required>
+                    <option value="cellular">cellular</option>
+                    <option value="telephone">telephone</option>
+                    <option value="unknown">unknown</option>
+                </select>
+            </div>
+            <div>
+                <label for="day">Last Contact Day of Month:</label>
+                <input type="number" id="day" name="day" required value="5">
+            </div>
+            <div>
+                <label for="month">Last Contact Month of Year:</label>
+                <select id="month" name="month" required>
+                    <option value="may">may</option>
+                    <option value="jun">jun</option>
+                    <option value="jul">jul</option>
+                    <option value="aug">aug</option>
+                    <option value="oct">oct</option>
+                    <option value="nov">nov</option>
+                    <option value="dec">dec</option>
+                    <option value="jan">jan</option>
+                    <option value="feb">feb</option>
+                    <option value="mar">mar</option>
+                    <option value="apr">apr</option>
+                    <option value="sep">sep</option>
+                </select>
+            </div>
+
+            <h2>Campaign Information</h2>
+            <div>
+                <label for="campaign">Number of Contacts Performed During This Campaign:</label>
+                <input type="number" id="campaign" name="campaign" required value="2">
+            </div>
+            <div>
+                <label for="pdays">Number of Days Since Last Contact From Previous Campaign (-1 if not previously contacted):</label>
+                <input type="number" id="pdays" name="pdays" required value="-1">
+            </div>
+            <div>
+                <label for="previous">Number of Contacts Performed Before This Campaign:</label>
+                <input type="number" id="previous" name="previous" required value="0">
+            </div>
+            <div>
+                <label for="poutcome">Outcome of the Previous Marketing Campaign:</label>
+                <select id="poutcome" name="poutcome" required>
+                    <option value="unknown">unknown</option>
+                    <option value="failure">failure</option>
+                    <option value="other">other</option>
+                    <option value="success">success</option>
+                </select>
+            </div>
+
+            <input type="submit" value="Get Prediction">
+        </form>
+
+        {% if prediction_result %}
+            <div class="result">
+                <h2>Prediction Result:</h2>
+                <p>The client is predicted to **{{ prediction_result }}** a term deposit.</p>
+                <p>Probability of Subscription: **{{ probability_of_subscription | round(4) }}**</p>
+            </div>
+        {% elif error_message %}
+            <div class="result error">
+                <h2>Error:</h2>
+                <p>{{ error_message }}</p>
+                {% if error_trace %}
+                    <pre>{{ error_trace }}</pre>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
