@@ -25,9 +25,6 @@ except Exception as e:
 
 # Define Preprocessing Function (Crucial for consistent predictions)
 def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
-    """
-    Applies the same preprocessing steps as performed during model training.
-    """
     # Create a DataFrame from the input dictionary
     df_input = pd.DataFrame([data])
 
