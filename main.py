@@ -23,16 +23,12 @@ try:
 except Exception as e:
     print(f"Error loading model or features: {e}")
 
-# Define Preprocessing Function (Crucial for consistent predictions)
+# Define Preprocessing Function
 def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
     # Create a DataFrame from the input dictionary
     df_input = pd.DataFrame([data])
 
-
-    if 'job' in df_input.columns:
-        df_input['job'] = df_input['job'].astype(str).str.replace('-', '').str.replace(' ', '')
-
-    # - Replicate dropping 'duration' (if present in input) ---
+    # Replicate dropping 'duration'
     if 'duration' in df_input.columns:
         df_input = df_input.drop('duration', axis=1)
 
@@ -40,21 +36,19 @@ def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
     if 'pdays' in df_input.columns:
         df_input['was_contacted_before'] = (df_input['pdays'] != -1).astype(int)
     else:
-        # Handle case where pdays might be missing in new input (e.g., default to 0)
         df_input['was_contacted_before'] = 0
 
     if 'campaign' in df_input.columns:
         df_input['multiple_campaign_contacts'] = (df_input['campaign'] > 1).astype(int)
     else:
-        # Handle case where campaign might be missing in new input
         df_input['multiple_campaign_contacts'] = 0
 
-    # Replicate Outlier Handling (Capping) 
-    numerical_cols_for_outlier_handling = ['balance', 'campaign', 'pdays', 'previous', 'age', 'day']
+    # Replicate Outlier Handling (Capping)
+    numerical_cols_for_outlier_handling = ['age', 'balance', 'campaign', 'pdays', 'previous', 'day']
     for col in numerical_cols_for_outlier_handling:
-        if col in df_input.columns and col in model_features:            
-            lower_bound = -1000000 # Default large negative for balance, etc.
-            upper_bound = 1000000 # Default large positive
+        if col in df_input.columns and col in model_features:
+            lower_bound = -1000000
+            upper_bound = 1000000
 
             if col == 'age':
                 lower_bound = 18
@@ -78,27 +72,25 @@ def preprocess_input(data: dict, model_features: list) -> pd.DataFrame:
             df_input[col] = np.where(df_input[col] < lower_bound, lower_bound, df_input[col])
             df_input[col] = np.where(df_input[col] > upper_bound, upper_bound, df_input[col])
 
-
-    # Replicate one-hot encoding    
+    # Replicate One-Hot Encoding
     original_categorical_cols = [
         'job', 'marital', 'education', 'default', 'housing', 'loan', 'contact',
         'month', 'poutcome'
     ]
 
-    # Convert object columns in current input to category type for consistency with get_dummies
     for col in original_categorical_cols:
-        if col in df_input.columns:            
+        if col in df_input.columns:
             df_input[col] = df_input[col].astype('category')
 
-    # Apply one-hot encoding to the input DataFrame
     df_processed = pd.get_dummies(df_input, columns=original_categorical_cols, drop_first=True)
+    df_processed.columns = df_processed.columns.str.replace('[^A-Za-z0-9_]+', '', regex=True)
 
     # Align columns with the model's training features
     missing_cols = set(model_features) - set(df_processed.columns)
     for c in missing_cols:
-        df_processed[c] = 0 # Add missing dummy variables as 0
+        df_processed[c] = 0 
 
-    # Ensuring the order of columns is the same as the training data
+    # Ensure the order of columns is the same as the training data
     df_final = df_processed[model_features]
 
     return df_final
